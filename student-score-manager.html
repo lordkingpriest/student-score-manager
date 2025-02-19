@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Next-Gen Student Score Manager</title>
+    <!-- Include libraries for exporting data -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        /* CSS Variables for Themes */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --primary-color: #4CAF50;
+            --secondary-color: #45a049;
+            --table-header-bg: #4CAF50;
+            --table-header-text: #ffffff;
+            --input-bg: #f9f9f9;
+            --input-border: #ddd;
+            --button-bg: #4CAF50;
+            --button-hover-bg: #45a049;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1e1e1e;
+            --text-color: #f5f5f5;
+            --primary-color: #2ecc71;
+            --secondary-color: #27ae60;
+            --table-header-bg: #2ecc71;
+            --table-header-text: #ffffff;
+            --input-bg: #333333;
+            --input-border: #444444;
+            --button-bg: #2ecc71;
+            --button-hover-bg: #27ae60;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .search-container input {
+            width: 300px;
+            padding: 10px;
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--input-border);
+        }
+
+        th {
+            background-color: var(--table-header-bg);
+            color: var(--table-header-text);
+        }
+
+        input {
+            width: 80px;
+            padding: 5px;
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--button-bg);
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--button-hover-bg);
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px;
+            border-radius: 50%;
+            background-color: var(--button-bg);
+            color: white;
+            cursor: pointer;
+        }
+
+        .total {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
+    <h1>Next-Gen Student Score Manager</h1>
+    <div class="controls">
+        <button onclick="addStudent()">Add Student</button>
+        <button onclick="calculateAll()">Calculate All</button>
+        <button onclick="saveData()">Save Data</button>
+        <button onclick="exportData('pdf')">Export as PDF</button>
+        <button onclick="exportData('excel')">Export as Excel</button>
+        <button onclick="exportData('word')">Export as Word</button>
+    </div>
+    <div class="search-container">
+        <input type="text" id="searchBar" placeholder="Search by Name or ID" oninput="searchStudents()">
+    </div>
+    <table id="scoreTable">
+        <thead>
+            <tr>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Class</th>
+                <th>Grade</th>
+                <th>Assignments (Before Midterm)</th>
+                <th>Midterm</th>
+                <th>Assignments (After Midterm)</th>
+                <th>Final</th>
+                <th>Total Score</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Rows will be added dynamically -->
+        </tbody>
+    </table>
+
+    <script>
+        // Load saved data from localStorage
+        function loadData() {
+            const savedData = localStorage.getItem('studentData');
+            if (savedData) {
+                document.querySelector('#scoreTable tbody').innerHTML = savedData;
+                document.querySelectorAll('input').forEach(input => input.addEventListener('input', calculateTotal));
+            }
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            const tableData = document.querySelector('#scoreTable tbody').innerHTML;
+            localStorage.setItem('studentData', tableData);
+            alert('Data saved successfully!');
+        }
+
+        // Add a new student row
+        function addStudent() {
+            const tbody = document.querySelector('#scoreTable tbody');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" placeholder="ID" oninput="autoSave()"></td>
+                <td><input type="text" placeholder="Name" oninput="autoSave()"></td>
+                <td><input type="text" placeholder="Class" oninput="autoSave()"></td>
+                <td><input type="text" placeholder="Grade" oninput="autoSave()"></td>
+                <td><input type="number" class="assignments-before" oninput="calculateTotal(this); autoSave()"></td>
+                <td><input type="number" class="midterm" oninput="calculateTotal(this); autoSave()"></td>
+                <td><input type="number" class="assignments-after" oninput="calculateTotal(this); autoSave()"></td>
+                <td><input type="number" class="final" oninput="calculateTotal(this); autoSave()"></td>
+                <td><span class="total">0</span></td>
+            `;
+            tbody.appendChild(row);
+        }
+
+        // Calculate total for a row
+        function calculateTotal(input) {
+            const row = input.closest('tr');
+            const assignmentsBefore = parseFloat(row.querySelector('.assignments-before').value) || 0;
+            const midterm = parseFloat(row.querySelector('.midterm').value) || 0;
+            const assignmentsAfter = parseFloat(row.querySelector('.assignments-after').value) || 0;
+            const final = parseFloat(row.querySelector('.final').value) || 0;
+            const total = assignmentsBefore + midterm + assignmentsAfter + final;
+            row.querySelector('.total').textContent = total;
+        }
+
+        // Calculate all totals
+        function calculateAll() {
+            document.querySelectorAll('.assignments-before, .midterm, .assignments-after, .final').forEach(input => {
+                calculateTotal(input);
+            });
+        }
+
+        // Automatically save data
+        function autoSave() {
+            const tableData = document.querySelector('#scoreTable tbody').innerHTML;
+            localStorage.setItem('studentData', tableData);
+        }
+
+        // Search students by name or ID
+        function searchStudents() {
+            const searchText = document.getElementById('searchBar').value.toLowerCase();
+            const rows = document.querySelectorAll('#scoreTable tbody tr');
+            rows.forEach(row => {
+                const id = row.querySelector('td:nth-child(1) input').value.toLowerCase();
+                const name = row.querySelector('td:nth-child(2) input').value.toLowerCase();
+                if (id.includes(searchText) || name.includes(searchText)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // Toggle dark/light theme
+        function toggleTheme() {
+            const body = document.body;
+            body.dataset.theme = body.dataset.theme === 'dark' ? 'light' : 'dark';
+        }
+
+        // Export data as PDF, Excel, or Word
+        function exportData(format) {
+            const table = document.getElementById('scoreTable');
+            if (format === 'pdf') {
+                const doc = new jspdf.jsPDF();
+                doc.autoTable({ html: table });
+                doc.save('student_data.pdf');
+            } else if (format === 'excel') {
+                const wb = XLSX.utils.table_to_book(table);
+                XLSX.writeFile(wb, 'student_data.xlsx');
+            } else if (format === 'word') {
+                const htmlContent = table.outerHTML;
+                const blob = new Blob([`<html><body>${htmlContent}</body></html>`], { type: 'application/msword' });
+                saveAs(blob, 'student_data.doc');
+            }
+        }
+
+        // Load saved data on page load
+        window.onload = () => {
+            loadData();
+            addStudent(); // Add a default row
+        };
+    </script>
+</body>
+</html>
